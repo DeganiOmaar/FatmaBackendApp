@@ -17,6 +17,16 @@ const stripe = require("./config/stripe");
 
 app.set("socketio", io);
 
+// ── Vercel serverless: connect DB on first request, then reuse ──────────────
+let dbConnected = false;
+app.use(async (req, res, next) => {
+  if (!dbConnected) {
+    await connectDB();
+    dbConnected = true;
+  }
+  next();
+});
+
 const {
   broadcastSavedMessage,
 } = require("./utils/chatBroadcast");
@@ -207,16 +217,21 @@ io.on("connection", (socket) => {
   });
 });
 console.log("MAIN SERVER LOADED");
+
 // ================= START =================
-const PORT = Number(process.env.PORT) || 5000;
-/** Listen on all interfaces so phones / other PCs on LAN can reach you (override with HOST=127.0.0.1 if needed). */
-const HOST = process.env.HOST || "0.0.0.0";
+// Export app for Vercel serverless (module.exports required).
+// When running locally (node server.js / nodemon), start the HTTP server normally.
+module.exports = app;
 
-connectDB()
-  .then(() => {
-    server.listen(PORT, HOST, () =>
-      console.log(`🚀 server listening on ${HOST}:${PORT}`)
-    );
-  })
+if (require.main === module) {
+  const PORT = Number(process.env.PORT) || 5001;
+  const HOST = process.env.HOST || "0.0.0.0";
 
-  .catch((err) => console.log(err));
+  connectDB()
+    .then(() => {
+      server.listen(PORT, HOST, () =>
+        console.log(`🚀 server listening on ${HOST}:${PORT}`)
+      );
+    })
+    .catch((err) => console.log(err));
+}
