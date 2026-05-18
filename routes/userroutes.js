@@ -1,25 +1,9 @@
 const router = require("express").Router();
 const User = require("../models/User");
 const Project = require("../models/project");
-const bcrypt = require("bcrypt"); // ✅ manquait !
-const multer = require("multer"); // ✅ une seule fois
-const path = require("path");     // ✅ une seule fois
-const fs = require("fs");         // ✅ une seule fois
-// Ajoute cette ligne en haut de userroutes.js
+const bcrypt = require("bcrypt");
 const { requireAuth } = require("../middleware/authMiddleware");
-// Config multer
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = "uploads/avatars";
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `avatar_${Date.now()}${ext}`);
-  },
-});
-const upload = multer({ storage });
+const { uploadAvatar } = require("../config/cloudinary");
 
 // --- 1. GET PROFIL ---
 router.get("/profile/:email", async (req, res) => {
@@ -121,13 +105,14 @@ router.put("/change-password/:email", async (req, res) => {
 });
 
 // --- 5. UPLOAD AVATAR ---
-router.post("/upload-avatar/:email", upload.single("avatar"), async (req, res) => {
+router.post("/upload-avatar/:email", uploadAvatar.single("avatar"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "Aucun fichier reçu" });
     }
 
-    const avatarUrl = `${req.protocol}://${req.get("host")}/uploads/avatars/${req.file.filename}`;
+    // Cloudinary returns the public URL in req.file.path
+    const avatarUrl = req.file.path;
 
     await User.findOneAndUpdate(
       { email: req.params.email },

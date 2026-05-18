@@ -266,7 +266,8 @@ exports.submitWorkForAdminReview = async (req, res) => {
       typeof req.body?.message === "string" ? req.body.message.trim() : "";
 
     const files = (req.files || []).map((f) => ({
-      filename: f.filename,
+      filename: f.filename,                    // Cloudinary public_id
+      url: f.path,                             // Cloudinary HTTPS URL
       originalName: f.originalname || "",
       mimeType: f.mimetype || "",
       size: Number(f.size) || 0,

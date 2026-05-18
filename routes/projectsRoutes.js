@@ -1,28 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const multer = require("multer");
 const Project = require("../models/project");
 const User = require("../models/User");
 const Proposal = require("../models/proposal");
 const { requireAuth, optionalAuth } = require("../middleware/authMiddleware");
+const { uploadDelivery } = require("../config/cloudinary");
 
 const projectController = require("../controllers/projectController");
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/");
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
-  }
-});
-
-const upload = multer({ storage });
-
-/** Fichiers / vidéos pour validation admin (limite ~100 Mo par fichier) */
-const uploadWorkAdmin = multer({
-  storage,
-  limits: { fileSize: 100 * 1024 * 1024, files: 20 },
-});
 // =======================
 // LIST ALL PROJECTS (freelancer missions / marketplace)
 // =======================
@@ -137,7 +121,7 @@ router.get(
 // =======================
 // DELIVER PROJECT
 // =======================
-router.put("/:id/deliver", requireAuth, upload.single("file"), async (req, res) => {
+router.put("/:id/deliver", requireAuth, uploadDelivery.single("file"), async (req, res) => {
   try {
     const io = req.app.get("socketio");
 
@@ -150,7 +134,7 @@ router.put("/:id/deliver", requireAuth, upload.single("file"), async (req, res) 
 
     project.status = "delivered";
     project.delivery = {
-      file: req.file ? req.file.filename : null,
+      file: req.file ? req.file.path : null,   // Cloudinary URL
       link: req.body.link || null,
       message: req.body.message || "",
     };
@@ -199,7 +183,7 @@ router.get(
 router.post(
   "/:id/submit-admin-delivery",
   requireAuth,
-  uploadWorkAdmin.array("files", 20),
+  uploadDelivery.array("files", 20),
   projectController.submitWorkForAdminReview
 );
 
