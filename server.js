@@ -31,6 +31,7 @@ const {
   broadcastSavedMessage,
 } = require("./utils/chatBroadcast");
 const { canParticipantsChat } = require("./utils/chatAccess");
+const { appendWalletLedger } = require("./utils/walletLedger");
 
 // ================= MIDDLEWARE =================
 app.use(cors());
@@ -79,6 +80,15 @@ app.post(
         );
         if (up.modifiedCount > 0) {
           console.log("💰 Wallet rechargé (webhook):", meta.userId, euros, "EUR");
+          await appendWalletLedger(meta.userId, {
+            type: "topup",
+            amount: euros,
+            label: "Recharge wallet",
+            refId: `topup:${piId}`,
+            createdAt: paymentIntent.created
+              ? new Date(paymentIntent.created * 1000)
+              : new Date(),
+          });
         }
         return res.json({ received: true });
       }

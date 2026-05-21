@@ -1,4 +1,5 @@
 const Project = require("../models/project");
+const { appendWalletLedger } = require("../utils/walletLedger");
 const Proposal = require("../models/proposal");
 const User = require("../models/User");
 
@@ -147,6 +148,12 @@ exports.deleteProject = async (req, res) => {
     if (canRefundWallet) {
       await User.findByIdAndUpdate(project.owner, {
         $inc: { walletBalance: project.budget },
+      });
+      await appendWalletLedger(project.owner, {
+        type: "refund",
+        amount: project.budget || 0,
+        label: `Remboursement — ${project.title || "Mission"}`,
+        refId: `refund:project:${project._id}`,
       });
     }
 

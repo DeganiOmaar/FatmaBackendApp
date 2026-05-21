@@ -5,6 +5,10 @@ const bcrypt = require("bcrypt");
 const { requireAuth } = require("../middleware/authMiddleware");
 const { uploadAvatar } = require("../config/cloudinary");
 const { findUserByEmailParam } = require("../utils/userEmailLookup");
+const {
+  ensureClientWalletLedger,
+  formatLedgerForApi,
+} = require("../utils/walletLedger");
 
 // --- 1. GET PROFIL ---
 router.get("/profile/:email", async (req, res) => {
@@ -153,7 +157,9 @@ router.post("/upload-avatar/:email", uploadAvatar.single("avatar"), async (req, 
 });
 router.get("/wallet", requireAuth, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("walletBalance role");
+    let user = await User.findById(req.user._id).select(
+      "walletBalance role walletLedger processedWalletTopUpIntentIds"
+    );
     if (!user) {
       return res.status(404).json({ error: "Utilisateur introuvable" });
     }
@@ -168,13 +174,35 @@ router.get("/wallet", requireAuth, async (req, res) => {
       return res.json({
         balance,
         currency: "EUR",
+        projectCount: projects.length,
         transactions: projects
       });
     }
+
+    if (user.role === "client") {
+      user = await ensureClientWalletLedger(user);
+      const projectCount = await Project.countDocuments({
+        owner: req.user._id,
+      });
+      const transactions = formatLedgerForApi(user.walletLedger);
+      const totalTopUp = transactions
+        .filter((t) => t.type === "topup")
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+      return res.json({
+        balance,
+        currency: "EUR",
+        projectCount,
+        totalTopUp,
+        transactions,
+      });
+    }
+
     res.json({
       balance,
       currency: "EUR",
-      transactions: []
+      projectCount: 0,
+      transactions: [],
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

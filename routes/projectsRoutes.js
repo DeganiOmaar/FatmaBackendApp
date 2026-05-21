@@ -7,6 +7,7 @@ const { requireAuth, optionalAuth } = require("../middleware/authMiddleware");
 const { uploadDelivery } = require("../config/cloudinary");
 
 const projectController = require("../controllers/projectController");
+const { appendWalletLedger } = require("../utils/walletLedger");
 // =======================
 // LIST ALL PROJECTS (freelancer missions / marketplace)
 // =======================
@@ -85,6 +86,14 @@ router.post("/add", requireAuth, async (req, res) => {
       await User.findByIdAndUpdate(client._id, { $inc: { walletBalance: budgetNum } });
       throw saveErr;
     }
+
+    await appendWalletLedger(client._id, {
+      type: "project_funding",
+      amount: -budgetNum,
+      label: title || "Mission publiée",
+      refId: `project:${newProject._id}`,
+      createdAt: newProject.createdAt,
+    });
 
     res.status(201).json({
       message: "Projet ajouté",

@@ -28,6 +28,20 @@ walletBalance: {
 },
   /** Paiements Stripe wallet déjà crédités (évite double crédit webhook + confirm). */
   processedWalletTopUpIntentIds: { type: [String], default: [] },
+  /** Historique wallet client : recharges, débits mission, remboursements. */
+  walletLedger: [
+    {
+      type: {
+        type: String,
+        enum: ["topup", "project_funding", "refund"],
+        required: true,
+      },
+      amount: { type: Number, required: true },
+      label: { type: String, default: "" },
+      refId: { type: String, default: "" },
+      createdAt: { type: Date, default: Date.now },
+    },
+  ],
   // --- PARAMÈTRES COMMUNS ---
   avatar: { type: String, default: "" }, // URL de la photo
   phoneNumber: { type: String },

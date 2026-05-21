@@ -1,6 +1,7 @@
 const stripe = require("../config/stripe");
 const Project = require("../models/project");
 const User = require("../models/User");
+const { appendWalletLedger } = require("../utils/walletLedger");
 
 /** Rechargement wallet client (Stripe, EUR) */
 exports.createWalletTopUpIntent = async (req, res) => {
@@ -88,6 +89,14 @@ exports.confirmWalletTopUp = async (req, res) => {
         alreadyProcessed: true
       });
     }
+
+    await appendWalletLedger(req.user._id, {
+      type: "topup",
+      amount: euros,
+      label: "Recharge wallet",
+      refId: `topup:${paymentIntentId}`,
+      createdAt: pi.created ? new Date(pi.created * 1000) : new Date(),
+    });
 
     return res.json({
       ok: true,
