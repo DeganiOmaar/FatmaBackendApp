@@ -4,20 +4,12 @@ const Project = require("../models/project");
 const bcrypt = require("bcrypt");
 const { requireAuth } = require("../middleware/authMiddleware");
 const { uploadAvatar } = require("../config/cloudinary");
+const { findUserByEmailParam } = require("../utils/userEmailLookup");
 
 // --- 1. GET PROFIL ---
 router.get("/profile/:email", async (req, res) => {
   try {
-    const emailNorm = decodeURIComponent(req.params.email || "")
-      .trim()
-      .toLowerCase();
-    if (!emailNorm) {
-      return res.status(400).json({ message: "Email requis" });
-    }
-    const esc = emailNorm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const user = await User.findOne({
-      email: { $regex: new RegExp("^" + esc + "$", "i") },
-    });
+    const user = await findUserByEmailParam(req.params.email);
     if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
 
     let userData = {
@@ -27,21 +19,24 @@ router.get("/profile/:email", async (req, res) => {
       email: user.email,
       role: user.role,
       avatar: user.avatar || null,
+      bio: user.bio || "",
       createdAt: user.createdAt,
     };
 
     if (user.role === "client") {
-      const Project = require("../models/project");
       userData.companyName = user.companyName || "Particulier";
-      userData.projectCount = await Project.countDocuments({ clientId: user._id });
+      userData.projectCount = await Project.countDocuments({
+        owner: user._id,
+      });
     }
 
     if (user.role === "freelancer") {
       const Proposal = require("../models/proposal");
       userData.speciality = user.speciality || "Freelancer";
       userData.skills = user.skills || [];
-      userData.bio = user.bio || "";
-      userData.proposalCount = await Proposal.countDocuments({ freelancer: user._id });
+      userData.proposalCount = await Proposal.countDocuments({
+        freelancer: user._id,
+      });
       userData.wonCount = await Proposal.countDocuments({
         freelancer: user._id,
         status: "accepted",
@@ -57,18 +52,47 @@ router.get("/profile/:email", async (req, res) => {
 // --- 2. UPDATE PROFIL ---
 router.put("/update/:email", async (req, res) => {
   try {
-    const updates = req.body;
-    const updatedUser = await User.findOneAndUpdate(
-      { email: req.params.email },
-      { $set: updates },
-      { new: true }
-    );
+    const user = await findUserByEmailParam(req.params.email);
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+
+    const { name, bio, companyName, speciality } = req.body || {};
+
+    if (name != null) {
+      const trimmed = String(name).trim();
+      if (!trimmed) {
+        return res.status(400).json({ message: "Le nom ne peut pas être vide" });
+      }
+      user.name = trimmed;
+    }
+    if (bio != null) {
+      user.bio = String(bio).trim();
+    }
+    if (companyName != null && user.role === "client") {
+      user.companyName = String(companyName).trim();
+    }
+    if (speciality != null && user.role === "freelancer") {
+      user.speciality = String(speciality).trim();
+    }
+
+    await user.save();
+
     res.status(200).json({
       message: "Profil mis à jour avec succès ✅",
-      user: updatedUser,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        bio: user.bio || "",
+        avatar: user.avatar || null,
+        companyName: user.companyName,
+        speciality: user.speciality,
+      },
     });
   } catch (err) {
-    res.status(500).json({ message: "Erreur lors de la mise à jour", error: err });
+    res.status(500).json({ message: "Erreur lors de la mise à jour", error: err.message });
   }
 });
 
@@ -88,7 +112,7 @@ router.get("/all-freelancers", async (req, res) => {
 router.put("/change-password/:email", async (req, res) => {
   try {
     const { oldPassword, newPassword } = req.body;
-    const user = await User.findOne({ email: req.params.email });
+    const user = await findUserByEmailParam(req.params.email);
 
     if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
 
@@ -114,10 +138,12 @@ router.post("/upload-avatar/:email", uploadAvatar.single("avatar"), async (req, 
     // Cloudinary returns the public URL in req.file.path
     const avatarUrl = req.file.path;
 
-    await User.findOneAndUpdate(
-      { email: req.params.email },
-      { avatar: avatarUrl }
-    );
+    const user = await findUserByEmailParam(req.params.email);
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+    user.avatar = avatarUrl;
+    await user.save();
 
     console.log(`✅ Avatar uploadé : ${avatarUrl}`);
     res.json({ avatarUrl });
