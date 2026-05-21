@@ -32,19 +32,29 @@ exports.getStats = async (req, res) => {
 // ─── 2. TOUS LES UTILISATEURS ─────────────────────────────────────────────────
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select("-password").sort({ createdAt: -1 });
+    const users = await User.find({ isArchived: { $ne: true } })
+      .select("-password")
+      .sort({ createdAt: -1 });
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// ─── 3. SUPPRIMER UN UTILISATEUR ─────────────────────────────────────────────
-exports.deleteUser = async (req, res) => {
+// ─── 3. ARCHIVER UN UTILISATEUR (soft delete) ─────────────────────────────────
+exports.archiveUser = async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
+    const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
-    res.json({ message: "Utilisateur supprimé ✅" });
+    if (user.isArchived) {
+      return res.status(400).json({ message: "Utilisateur déjà archivé" });
+    }
+
+    user.isArchived = true;
+    user.archivedAt = new Date();
+    await user.save();
+
+    res.json({ message: "Utilisateur archivé ✅" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -75,6 +85,41 @@ exports.getAllProjects = async (req, res) => {
       .populate("owner", "name email avatar")
       .sort({ createdAt: -1 });
     res.json(projects);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ─── 5b. SUPPRIMER UN PROJET (ADMIN) ─────────────────────────────────────────
+exports.deleteProject = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) {
+      return res.status(404).json({ message: "Projet non trouvé" });
+    }
+
+    if (project.paymentStatus === "escrow_locked") {
+      const refundAmount = project.escrowAmount || project.budget || 0;
+      if (refundAmount > 0 && project.owner) {
+        await User.findByIdAndUpdate(project.owner, {
+          $inc: { walletBalance: refundAmount },
+        });
+      }
+    } else if (
+      project.fundedFromWallet &&
+      project.status === "open" &&
+      project.paymentStatus === "not_locked" &&
+      project.owner
+    ) {
+      await User.findByIdAndUpdate(project.owner, {
+        $inc: { walletBalance: project.budget || 0 },
+      });
+    }
+
+    await Proposal.deleteMany({ project: project._id });
+    await Project.findByIdAndDelete(project._id);
+
+    res.json({ message: "Projet supprimé ✅" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

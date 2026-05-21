@@ -13,15 +13,17 @@ router.get("/stats", adminController.getStats);
 
 // ─── UTILISATEURS ─────────────────────────────────────────────────────────────
 // GET    /api/admin/users
-// DELETE /api/admin/users/:id
+// DELETE /api/admin/users/:id          (archive — soft delete)
 // PUT    /api/admin/users/:id/toggle-block
 router.get("/users",                   adminController.getAllUsers);
-router.delete("/users/:id",            adminController.deleteUser);
+router.delete("/users/:id",            adminController.archiveUser);
 router.put("/users/:id/toggle-block",  adminController.toggleBlock);
 
 // ─── PROJETS ──────────────────────────────────────────────────────────────────
-// GET /api/admin/projects
+// GET    /api/admin/projects
+// DELETE /api/admin/projects/:id
 router.get("/projects", adminController.getAllProjects);
+router.delete("/projects/:id", adminController.deleteProject);
 
 // ─── ESCROW — DEMANDES D’ANNULATION CLIENT ───────────────────────────────────
 // GET  /api/admin/cancellation-requests

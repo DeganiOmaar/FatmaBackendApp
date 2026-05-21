@@ -46,6 +46,9 @@ walletBalance: {
   avatar: { type: String, default: "" }, // URL de la photo
   phoneNumber: { type: String },
   isVerified: { type: Boolean, default: false },
+  isBlocked: { type: Boolean, default: false },
+  isArchived: { type: Boolean, default: false },
+  archivedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 

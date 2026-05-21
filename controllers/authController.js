@@ -129,6 +129,14 @@ exports.login = async (req, res) => {
 
     if (!user) return res.status(401).json({ message: "Identifiants invalides" });
 
+    if (user.isArchived) {
+      return res.status(403).json({ message: "Ce compte a été archivé" });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({ message: "Ce compte est bloqué" });
+    }
+
     // Bloquer la connexion si l'email n'est pas vérifié
     if (!user.isVerified) {
       return res.status(403).json({ message: "Veuillez vérifier votre compte par email" });
