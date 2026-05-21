@@ -134,6 +134,7 @@ app.use("/api/proposals", require("./routes/proposalRoutes"));
 app.use("/api/messages", require("./routes/messageRoutes"));
 app.use("/api/payment", require("./routes/paymentRoutes"));
 app.use("/api/assistant", require("./routes/assistantRoutes"));
+app.use("/api/notifications", require("./routes/notificationRoutes"));
 
 app.use("/api/admin", require("./routes/admin"));
 const escrowRoutes = require("./routes/escrowRoutes");
