@@ -41,4 +41,18 @@ function canParticipantsChat(project, senderId, receiverId) {
   return true;
 }
 
-module.exports = { mongoIdLikeToString, projectParticipantIds, canParticipantsChat };
+/** L’utilisateur est client ou freelance assigné sur ce projet. */
+function isProjectParticipant(project, userId) {
+  if (!project) return false;
+  const u = userId != null ? String(userId).trim() : "";
+  if (!u) return false;
+  const { ownerId, freelancerId } = projectParticipantIds(project);
+  return u === ownerId || u === freelancerId;
+}
+
+module.exports = {
+  mongoIdLikeToString,
+  projectParticipantIds,
+  canParticipantsChat,
+  isProjectParticipant,
+};
