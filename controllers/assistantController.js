@@ -23,9 +23,12 @@ function handleGroqError(res, err) {
   });
 }
 
-async function assertFreelancer(req, res) {
-  if (req.user.role !== "freelancer") {
-    res.status(403).json({ message: "Réservé aux freelancers" });
+async function assertAssistantUser(req, res) {
+  const role = req.user.role;
+  if (role !== "freelancer" && role !== "client") {
+    res.status(403).json({
+      message: "Réservé aux clients et freelancers",
+    });
     return false;
   }
   return true;
@@ -44,7 +47,7 @@ function sessionTitleFromMessage(text) {
 /** GET /api/assistant/sessions */
 exports.listSessions = async (req, res) => {
   try {
-    if (!(await assertFreelancer(req, res))) return;
+    if (!(await assertAssistantUser(req, res))) return;
 
     const sessions = await AssistantSession.find({ userId: req.user._id })
       .sort({ updatedAt: -1 })
@@ -67,7 +70,7 @@ exports.listSessions = async (req, res) => {
 /** POST /api/assistant/sessions */
 exports.createSession = async (req, res) => {
   try {
-    if (!(await assertFreelancer(req, res))) return;
+    if (!(await assertAssistantUser(req, res))) return;
 
     const session = await AssistantSession.create({
       userId: req.user._id,
@@ -90,7 +93,7 @@ exports.createSession = async (req, res) => {
 /** GET /api/assistant/sessions/:sessionId/messages */
 exports.getMessages = async (req, res) => {
   try {
-    if (!(await assertFreelancer(req, res))) return;
+    if (!(await assertAssistantUser(req, res))) return;
 
     const session = await loadOwnedSession(
       req.params.sessionId,
@@ -126,7 +129,7 @@ exports.getMessages = async (req, res) => {
 /** POST /api/assistant/sessions/:sessionId/messages */
 exports.sendMessage = async (req, res) => {
   try {
-    if (!(await assertFreelancer(req, res))) return;
+    if (!(await assertAssistantUser(req, res))) return;
 
     const { message } = req.body;
     const text = String(message || "").trim();
@@ -162,7 +165,11 @@ exports.sendMessage = async (req, res) => {
 
     let assistantText;
     try {
-      assistantText = await generateAssistantReply(history, text);
+      assistantText = await generateAssistantReply(
+        history,
+        text,
+        req.user.role
+      );
     } catch (err) {
       await AssistantMessage.deleteOne({ _id: userDoc._id });
       return handleGroqError(res, err);
@@ -210,7 +217,7 @@ exports.sendMessage = async (req, res) => {
 /** DELETE /api/assistant/sessions/:sessionId */
 exports.deleteSession = async (req, res) => {
   try {
-    if (!(await assertFreelancer(req, res))) return;
+    if (!(await assertAssistantUser(req, res))) return;
 
     const session = await loadOwnedSession(
       req.params.sessionId,

@@ -1,10 +1,10 @@
 /**
- * Lancy Assistant — Groq chat completions for freelancers.
+ * Lancy Assistant — Groq chat completions (freelancers & clients).
  */
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-const SYSTEM_PROMPT = `Tu es Lancy Assistant, l'assistant IA de la plateforme LANCY (marketplace freelance).
+const FREELANCER_SYSTEM_PROMPT = `Tu es Lancy Assistant, l'assistant IA de la plateforme LANCY (marketplace freelance).
 
 Tu aides UNIQUEMENT les freelancers sur des sujets liés à LANCY et au freelancing sur cette plateforme, par exemple :
 - rédiger ou améliorer une proposition pour une mission ;
@@ -17,17 +17,47 @@ Si la question concerne un autre sujet (recettes, politique, santé, autre appli
 
 Réponds toujours en français, de façon claire, structurée et bienveillante.`;
 
-const OFF_TOPIC_FALLBACK =
+const CLIENT_SYSTEM_PROMPT = `Tu es Lancy Assistant, l'assistant IA de la plateforme LANCY (marketplace freelance).
+
+Tu aides UNIQUEMENT les clients sur des sujets liés à LANCY et à la publication / gestion de missions sur cette plateforme, par exemple :
+- rédiger ou améliorer une description de mission (titre, besoins, livrables attendus) ;
+- définir un budget réaliste et des délais ;
+- choisir les bonnes compétences à demander et évaluer les propositions reçues ;
+- comprendre le fonctionnement de LANCY (publication, propositions, suivi, livrables, validation, escrow, wallet client, paiements) ;
+- bonnes pratiques pour collaborer avec un freelancer sur LANCY.
+
+Si la question concerne un autre sujet (recettes, politique, santé, autre application, etc.), réponds poliment en français que tu n'as pas d'information sur ce sujet car tu es spécialisé uniquement sur LANCY et l'usage client de cette plateforme. Ne invente pas de faits.
+
+Réponds toujours en français, de façon claire, structurée et bienveillante.`;
+
+const FREELANCER_OFF_TOPIC_FALLBACK =
   "Je suis Lancy Assistant, spécialisé uniquement sur LANCY et le freelancing sur cette plateforme. Je ne peux pas vous aider sur ce sujet. Posez-moi une question sur vos propositions, missions, profil ou le fonctionnement de LANCY.";
+
+const CLIENT_OFF_TOPIC_FALLBACK =
+  "Je suis Lancy Assistant, spécialisé uniquement sur LANCY et l'usage client de cette plateforme. Je ne peux pas vous aider sur ce sujet. Posez-moi une question sur vos missions, propositions, livrables ou le fonctionnement de LANCY.";
+
+function systemPromptForRole(role) {
+  return role === "client" ? CLIENT_SYSTEM_PROMPT : FREELANCER_SYSTEM_PROMPT;
+}
+
+function offTopicFallbackForRole(role) {
+  return role === "client"
+    ? CLIENT_OFF_TOPIC_FALLBACK
+    : FREELANCER_OFF_TOPIC_FALLBACK;
+}
 
 const MAX_HISTORY_MESSAGES = 24;
 
 /**
  * @param {Array<{ role: string, content: string }>} history
  * @param {string} userMessage
+ * @param {"client"|"freelancer"|string} [role]
  * @returns {Promise<string>}
  */
-async function generateAssistantReply(history, userMessage) {
+async function generateAssistantReply(history, userMessage, role = "freelancer") {
+  const audience = role === "client" ? "client" : "freelancer";
+  const systemPrompt = systemPromptForRole(audience);
+  const offTopicFallback = offTopicFallbackForRole(audience);
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey || !String(apiKey).trim()) {
     const err = new Error("GROQ_API_KEY manquant");
@@ -40,7 +70,7 @@ async function generateAssistantReply(history, userMessage) {
 
   const trimmedHistory = history.slice(-MAX_HISTORY_MESSAGES);
   const messages = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: systemPrompt },
     ...trimmedHistory.map((m) => ({
       role: m.role === "assistant" ? "assistant" : "user",
       content: String(m.content || "").slice(0, 8000),
@@ -89,7 +119,7 @@ async function generateAssistantReply(history, userMessage) {
 
   const content = data?.choices?.[0]?.message?.content?.trim();
   if (!content) {
-    return OFF_TOPIC_FALLBACK;
+    return offTopicFallback;
   }
 
   return content;
@@ -97,6 +127,9 @@ async function generateAssistantReply(history, userMessage) {
 
 module.exports = {
   generateAssistantReply,
-  SYSTEM_PROMPT,
-  OFF_TOPIC_FALLBACK,
+  systemPromptForRole,
+  FREELANCER_SYSTEM_PROMPT,
+  CLIENT_SYSTEM_PROMPT,
+  FREELANCER_OFF_TOPIC_FALLBACK,
+  CLIENT_OFF_TOPIC_FALLBACK,
 };
