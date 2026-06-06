@@ -2,7 +2,7 @@ const Project = require("../models/project");
 const { appendWalletLedger } = require("../utils/walletLedger");
 const Proposal = require("../models/proposal");
 const User = require("../models/User");
-
+const Notification = require("../models/notification");
 // --- 1. CRÉER UN PROJET (C'est ici que l'erreur se produisait) ---
 exports.createProject = async (req, res) => {
   try {
@@ -302,7 +302,11 @@ exports.submitWorkForAdminReview = async (req, res) => {
     }
 
     await project.save();
-
+await Notification.create({
+  userId: project.owner,
+  title: "Livrable reçu 📦",
+  message: `Le freelancer a envoyé le travail pour « ${project.title} ». Ouvrez le suivi de mission pour valider.`,
+});
     const io = req.app.get("socketio");
     if (io && project.owner) {
       io.to(project.owner.toString()).emit("notification", {
@@ -353,7 +357,11 @@ exports.approveClientWorkSubmission = async (req, res) => {
     project.adminWorkSubmission.reviewNote = "";
 
     await project.save();
-
+await Notification.create({
+  userId: project.acceptedFreelancer,
+  title: "Livrable accepté par le client ✓",
+  message: "Le client a validé votre travail. L'administration va libérer le paiement sur votre wallet.",
+});
     const io = req.app.get("socketio");
     if (io && project.acceptedFreelancer) {
       io.to(project.acceptedFreelancer.toString()).emit("notification", {

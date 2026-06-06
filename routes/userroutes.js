@@ -15,17 +15,21 @@ router.get("/profile/:email", async (req, res) => {
   try {
     const user = await findUserByEmailParam(req.params.email);
     if (!user) return res.status(404).json({ message: "Utilisateur non trouvé" });
-
-    let userData = {
-      id: user._id,
-      name: user.name,
-      displayName: user.name || user.email.split("@")[0],
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar || null,
-      bio: user.bio || "",
-      createdAt: user.createdAt,
-    };
+let userData = {
+  id: user._id,
+  name: user.name,
+  displayName: user.name || user.email.split("@")[0],
+  email: user.email,
+  role: user.role,
+  avatar: user.avatar || null,
+  bio: user.bio || "",
+  createdAt: user.createdAt,
+  // ── CHAMPS JDOD ──────────────────────
+  location: user.location || "",
+  website: user.website || "",
+  linkedin: user.linkedin || "",
+  github: user.github || "",
+};
 
     if (user.role === "client") {
       userData.companyName = user.companyName || "Particulier";
@@ -34,7 +38,7 @@ router.get("/profile/:email", async (req, res) => {
       });
     }
 
-    if (user.role === "freelancer") {
+if (user.role === "freelancer") {
       const Proposal = require("../models/proposal");
       userData.speciality = user.speciality || "Freelancer";
       userData.skills = user.skills || [];
@@ -45,6 +49,9 @@ router.get("/profile/:email", async (req, res) => {
         freelancer: user._id,
         status: "accepted",
       });
+      // ← ZID HEDHOM
+      userData.hourlyRate = user.hourlyRate || null;
+      userData.languages = user.languages || [];
     }
 
     res.status(200).json(userData);
@@ -61,7 +68,7 @@ router.put("/update/:email", async (req, res) => {
       return res.status(404).json({ message: "Utilisateur non trouvé" });
     }
 
-    const { name, bio, companyName, speciality } = req.body || {};
+    const { name, bio, companyName, speciality, location, website, linkedin, github, hourlyRate } = req.body || {};
 
     if (name != null) {
       const trimmed = String(name).trim();
@@ -70,14 +77,19 @@ router.put("/update/:email", async (req, res) => {
       }
       user.name = trimmed;
     }
-    if (bio != null) {
-      user.bio = String(bio).trim();
-    }
+    if (bio != null) user.bio = String(bio).trim();
+    if (location != null) user.location = String(location).trim();
+    if (website != null) user.website = String(website).trim();
+    if (linkedin != null) user.linkedin = String(linkedin).trim();
+    if (github != null) user.github = String(github).trim();
     if (companyName != null && user.role === "client") {
       user.companyName = String(companyName).trim();
     }
     if (speciality != null && user.role === "freelancer") {
       user.speciality = String(speciality).trim();
+    }
+    if (hourlyRate != null && user.role === "freelancer") {
+      user.hourlyRate = Number(hourlyRate);
     }
 
     await user.save();
@@ -91,6 +103,11 @@ router.put("/update/:email", async (req, res) => {
         role: user.role,
         bio: user.bio || "",
         avatar: user.avatar || null,
+        location: user.location || "",
+        website: user.website || "",
+        linkedin: user.linkedin || "",
+        github: user.github || "",
+        hourlyRate: user.hourlyRate || null,
         companyName: user.companyName,
         speciality: user.speciality,
       },
